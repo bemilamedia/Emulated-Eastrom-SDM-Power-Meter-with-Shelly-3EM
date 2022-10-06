@@ -81,3 +81,13 @@ Part of Data Package |  Description | Value
 71 CE | CRC | 0x71CE (29134)
 
 I then set out to build a device that could answer the request.
+
+
+## Changes in this fork
+The Schelly 3EM does not balance over the 3 phases. This is a known "problem", which is not addressed by Shelly.
+
+I have adapted the code, for me, so that all 3 phases are read via MQTT and then balanced in the ESP8266. The balanced value is then output.
+
+The code can certainly be optimized, also in terms of error / measurement error and so on. But for me it was first of all important to be able to output a balanced value via MQTT.
+
+Translated with www.DeepL.com/Translator (free version)
