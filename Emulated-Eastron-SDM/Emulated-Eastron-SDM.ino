@@ -15,12 +15,17 @@ PubSubClient client(espClient);
 long lastMsg = 0;
 char msg[50];
 int value = 0;
+int power_phase_1 = 0; // storage for the value of P1
+int power_phase_2 = 0; // storage for the value of P2
+int power_phase_3 = 0; // storage for the value of P3
+int counter_j = 0; //Counter fot the Callback function, that first all 3 phases are read in
 
 // **************************************************
 void setup() {
   Serial.begin(9600);
 
   setup_wifi();
+  //MQTT Server Verbindung starten
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
@@ -89,37 +94,68 @@ void setup_wifi() {
 // steps to take when a power value is recieved via MQTT
 
 void callback(char* topic, byte* message, unsigned int length) {
-  Serial.print("Message arrived on topic: ");
-  Serial.print(topic);
-  Serial.print(": ");
-
+  //Serial.print("Message arrived on topic: ");
+  //Serial.print(topic);
+  //Serial.println(": ");
   // convert each byte to a char and build a string containing the mqtt message
   String messageTemp;
   for (int i = 0; i < length; i++) {
-    // Serial.print((char)message[i]);
+    //Serial.print((char)message[i]);
     messageTemp += (char)message[i];
   }
-  Serial.println(messageTemp);  // print the topic message (it's a string at this point)
+  //Serial.println(messageTemp);  // print the topic message (it's a string at this point)
 
   // convert the stirng (messageTemp) to an integer. I'm ignoring the fractional part so 123.456 will return 123
-  int power_in_watts;
+  int power_in_watts = 0;
   const char* string1 = messageTemp.c_str();
   power_in_watts = atoi(string1);
-  Serial.printf("Converted to int: %d \n", power_in_watts);
+  //Serial.printf("Converted to int: %d \n", power_in_watts);
 
   // update the Active power Watts (integer part)
-  mb.Ireg(4, power_in_watts);
+  if (strcmp(topic, mqtt_topic_phase1) == 0)
+   {
+    power_phase_1 = power_in_watts;
+    }
+  else if (strcmp(topic, mqtt_topic_phase2) == 0)
+   {
+    power_phase_2 = power_in_watts;
+    }
+  else if (strcmp(topic, mqtt_topic_phase3) == 0)
+    {
+    power_phase_3 = power_in_watts;
+    }
+   else 
+   {
+      // Define Default watts to 300 Watts. So by default the Growatt gets the information that we collect 300Watts from the net and power up to 300Watts 
+      // Thats Ok because it look like a balkony solar power plant ( German = Balkonkraftwerk max. 600Watt Einspeisung in DE)
+      // For security it may be better to set the defaults to 0 Watts?! In this case, the Growatt will be regulate to 0 Watts of solar power 
+      power_phase_1 = 100;
+      power_phase_2 = 100;
+      power_phase_3 = 100;
+    }
+    //Routine always to calculate all 3 phases first, It always comes in P1 - P2 - P3
+    // Therefore, the whole thing must first be run through 3 times to have all the values of the phases
+    counter_j++;
+    //Serial.println(counter_j);
+    if (counter_j == 3)
+    {
+      power_in_watts = power_phase_1 + power_phase_2 + power_phase_3;
+      Serial.printf("Saldierter Wert aus 3 Phasen: %d \n", power_in_watts);
+      mb.Ireg(4, power_in_watts);
+      counter_j = 0;
+    }
 
+  /*
   // If a message is received on the topic shellies/shellyem-house/emeter/0/power
-  // if (String(topic) == mqtt_topic) {
-  //   //Serial.println("We have message!");
-  //   // determine is the power value is negative, ie we are exporting power to the grid
-  //   if (messageTemp == "on") {
-  //     Serial.println("on");
-  //   } else if (messageTemp == "off") {
-  //     Serial.println("off");
-  //   }
-  // }
+  if (String(topic) == mqtt_topic) {
+     Serial.println("We have message!");
+     // determine is the power value is negative, ie we are exporting power to the grid
+     if (messageTemp == "on") {
+       Serial.println("on");
+     } else if (messageTemp == "off") {
+       Serial.println("off");
+     }
+   }*/
 }
 
 // **************************************************
@@ -131,7 +167,12 @@ void reconnect() {
     if (client.connect(clientID, mqtt_username, mqtt_password)) {
       Serial.println("Connected to MQTT Broker!");
       // Subscribe
-      client.subscribe("shellies/shellyem-house/emeter/0/power");
+      //client.subscribe("shellies/shellyem-house/emeter/0/power");
+      //client.subscribe(mqtt_topic);
+      // subscribe to MQTT of all 3 Phases from the Shellie 3EM
+      client.subscribe(mqtt_topic_phase1);
+      client.subscribe(mqtt_topic_phase2);
+      client.subscribe(mqtt_topic_phase3);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
