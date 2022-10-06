@@ -1,4 +1,4 @@
-# Emulated Eastron SDM
+# Emulated Eastron SDM (Fork with balance 3phases of the Shelly 3EM - see the last point in this description)
  An ESP8266 project to emulate an Eastron SDM power meter
 
  ## Background
